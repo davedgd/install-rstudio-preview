@@ -26,112 +26,136 @@ import sys
 
 ###
 
-user_agent_rotator = UserAgent(software_names = SoftwareName.CHROME.value, operating_systems = OperatingSystem.WINDOWS.value, limit = 10)
-user_agent = user_agent_rotator.get_random_user_agent()
+def main():
 
-headers = {'User-Agent': user_agent}
+    user_agent_rotator = UserAgent(software_names = SoftwareName.CHROME.value, operating_systems = OperatingSystem.WINDOWS.value, limit = 10)
+    user_agent = user_agent_rotator.get_random_user_agent()
 
-page = requests.get('https://www.rstudio.com/products/rstudio/download/preview/', headers = headers)
+    headers = {'User-Agent': user_agent}
 
-soup = BS(page.content.decode(), features="html.parser")
+    page = requests.get('https://www.rstudio.com/products/rstudio/download/preview/', headers = headers)
 
-tableRows = soup.find('table', {'class': 'downloads'}).find_all('tr')
+    soup = BS(page.content.decode(), features="html.parser")
 
-tableIter = iter(tableRows)
-next(tableIter)
+    tableRows = soup.find('table', {'class': 'downloads'}).find_all('tr')
 
-versions = []
-platforms = []
-urls = []
+    tableIter = iter(tableRows)
+    next(tableIter)
 
-for row in tableIter:
-    versions.append(row.find('a').text.split(' - ')[0].split(" ")[1].strip())
-    platforms.append(row.find('a').text.split(' - ')[1].strip())
-    urls.append(row.find('a').get('href'))
+    versions = []
+    platforms = []
+    urls = []
 
-df = pd.DataFrame(data = {'Platform': platforms, 'Version': versions, 'Selection': range(1, len(urls) + 1), 'URL': urls})
+    for row in tableIter:
+        versions.append(row.find('a').text.split(' - ')[0].split(" ")[1].strip())
+        platforms.append(row.find('a').text.split(' - ')[1].strip())
+        urls.append(row.find('a').get('href'))
 
-print('\r')
+    df = pd.DataFrame(data = {'Platform': platforms, 'Version': versions, 'Selection': range(1, len(urls) + 1), 'URL': urls})
 
-print(df.iloc[:,0:3].to_string(index = False))
+    print('\r')
 
-match = False
+    print(df.iloc[:,0:3].to_string(index = False))
 
-if len(sys.argv) > 1:
-    for eachPlatform in platforms:
-        if sys.argv[1].replace('"', '').replace("'", '') in eachPlatform:
-            match = True
+    match = False
 
-if match:
-    toInstall = int(df[df['Platform'].str.contains(sys.argv[1].replace('"', '').replace("'", ''))].index.values.astype(int))
-else:
+    if len(sys.argv) > 1:
+        for eachPlatform in platforms:
+            if sys.argv[1].replace('"', '').replace("'", '') in eachPlatform:
+                match = True
 
-    while True:
+    if match:
+        toInstall = int(df[df['Platform'].str.contains(sys.argv[1].replace('"', '').replace("'", ''))].index.values.astype(int))
+    else:
+
+        while True:
+            try:
+                print('\nEnter selection number to install:', end = " ")
+                toInstall = int(input())
+                if toInstall in range(0, len(urls)):
+                    toInstall = toInstall - 1
+                    break
+                elif toInstall == 0:
+                    print('Installation cancelled...')
+                    toInstall = -1
+                    break
+            except:    
+                pass
+
+            print('Your selection is invalid (type 0 to cancel)!')
+
+        if toInstall == -1:
+            exit()
+
+    print('\nYou selected:', df.iloc[toInstall, 0])
+
+    selectedUrl = df.iloc[toInstall, 3]
+
+    class DownloadProgressBar(tqdm):
+        def update_to(self, b=1, bsize=1, tsize=None):
+            if tsize is not None:
+                self.total = tsize
+            self.update(b * bsize - self.n)
+
+
+    def download_url(url, output_path):
+        with DownloadProgressBar(unit='B', unit_scale=True,
+                                miniters=1, desc=url.split('/')[-1]) as t:
+            urllib.request.urlretrieve(url, filename=output_path, reporthook=t.update_to)
+
+    file = os.path.basename(urlparse(selectedUrl).path)
+
+    if 'Ubuntu' in df.iloc[toInstall, 0]:
+
+        pipe = subprocess.Popen('apt-cache policy rstudio', shell = True, stdout = subprocess.PIPE).stdout
+
         try:
-            print('\nEnter selection number to install:', end = " ")
-            toInstall = int(input())
-            if toInstall in range(0, len(urls)):
-                toInstall = toInstall - 1
-                break
-            elif toInstall == 0:
-                print('Installation cancelled...')
-                toInstall = -1
-                break
-        except:    
-            pass
+            version = str(pipe.read()).split('\\n')[1].split('Installed: ')[1]
+        except:
+            version = None
 
-        print('Your selection is invalid (type 0 to cancel)!')
+        if version != df.iloc[toInstall, 1]:
+            print('Installing...')
+            download_url(selectedUrl, output_path = os.path.join(os.getcwd(), file))
+            subprocess.run(["sudo", "dpkg", "-i", file])
+            os.remove(file)
+            print('Installation complete!')
+        else:
+            print('\nYou are already using the latest version! Aborting...\n')
+            quit()
 
-    if toInstall == -1:
-        exit()
+    elif 'Windows' in df.iloc[toInstall, 0]:
 
-print('\nYou selected:', df.iloc[toInstall, 0])
+        version = subprocess.check_output('wmic datafile where name="C:\\\\Program Files\\\\RStudio\\\\bin\\\\rstudio.exe" get version', stderr = subprocess.PIPE).decode().split('\r\r\n')[1].strip()
 
-selectedUrl = df.iloc[toInstall, 3]
+        if (df.iloc[toInstall, 1] in version):
+            print('\nYou are already using the latest version! Aborting...')
+            quit()
+        else:
+            print('Installing...')
+            download_url(selectedUrl, output_path = os.path.join(os.getcwd(), file))
+            subprocess.run([file, "/S"])
+            os.remove(file)
+            print('Installation complete!')
 
-class DownloadProgressBar(tqdm):
-    def update_to(self, b=1, bsize=1, tsize=None):
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)
+    elif 'Mac' in df.iloc[toInstall, 0]:
 
+        try:
+            version = str(subprocess.check_output('cat /Applications/RStudio.app/Contents/Info.plist | grep -A1 CFBundleShortVersionString | grep string | sed "s/<[^>]*>//g"', shell = True, stderr = subprocess.PIPE)).split('\\t')[1].split('\\n')[0]
+        except:
+            version = None
 
-def download_url(url, output_path):
-    with DownloadProgressBar(unit='B', unit_scale=True,
-                             miniters=1, desc=url.split('/')[-1]) as t:
-        urllib.request.urlretrieve(url, filename=output_path, reporthook=t.update_to)
+        if (df.iloc[toInstall, 1] == version):
+            print('\nYou are already using the latest version! Aborting...\n')
+            quit()
+        else:
+            print('Installing...')
+            download_url(selectedUrl, output_path = os.path.join(os.getcwd(), file))
 
-file = os.path.basename(urlparse(selectedUrl).path)
+            subprocess.call('hdiutil attach ' + file + '; rm -rf /Applications/RStudio.app; ' + 'cp -R /Volumes/' + os.path.splitext(file)[0] + '/RStudio.app /Applications; hdiutil detach /Volumes/' + os.path.splitext(file)[0], shell = True, stdout = subprocess.DEVNULL)
+            
+            os.remove(file)
+            print('Installation complete!')
 
-if 'Ubuntu' in df.iloc[toInstall, 0]:
-
-    pipe = subprocess.Popen('apt-cache policy rstudio', shell = True, stdout = subprocess.PIPE).stdout
-
-    try:
-        version = str(pipe.read()).split('\\n')[1].split('Installed: ')[1]
-    except:
-        version = None
-
-    if version != df.iloc[toInstall, 1]:
-        print('Installing...')
-        download_url(selectedUrl, output_path = os.path.join(os.getcwd(), file))
-        subprocess.run(["sudo", "dpkg", "-i", file])
-        os.remove(file)
-        print('Installation complete!')
-    else:
-        print('\nYou are already using the latest version! Aborting...\n')
-        quit()
-
-elif 'Windows' in df.iloc[toInstall, 0]:
-
-    version = subprocess.check_output('wmic datafile where name="C:\\\\Program Files\\\\RStudio\\\\bin\\\\rstudio.exe" get version', stderr=subprocess.PIPE).decode().split('\r\r\n')[1].strip()
-
-    if (df.iloc[toInstall, 1] in version):
-        print('\nYou are already using the latest version! Aborting...')
-        quit()
-    else:
-        print('Installing...')
-        download_url(selectedUrl, output_path = os.path.join(os.getcwd(), file))
-        subprocess.run([file, "/S"])
-        os.remove(file)
-        print('Installation complete!')
+if __name__== "__main__":
+  main()
