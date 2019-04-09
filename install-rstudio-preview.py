@@ -1,4 +1,5 @@
 # Note: for Windows, need to check if RStudio is already running or install fails...
+# Need to add ability to show current version and to quit running software
 
 import requests
 
@@ -91,12 +92,13 @@ def main():
 
     selectedUrl = df.iloc[toInstall, 3]
 
+    # progress bar thanks to https://stackoverflow.com/a/53877507
+
     class DownloadProgressBar(tqdm):
         def update_to(self, b=1, bsize=1, tsize=None):
             if tsize is not None:
                 self.total = tsize
             self.update(b * bsize - self.n)
-
 
     def download_url(url, output_path):
         with DownloadProgressBar(unit='B', unit_scale=True,
