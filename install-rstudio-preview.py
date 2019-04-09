@@ -1,5 +1,7 @@
-# Note: for Windows, need to check if RStudio is already running or install fails...
-# Need to add ability to show current version and to quit running software
+# To-Do:
+# For Windows, need to check if RStudio is already running and quit (or install fails)
+# Print current installed version (if applicable)
+# Update for RStudio Preview 1.3? (not yet released; 1.2 now main release)
 
 import requests
 
