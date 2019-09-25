@@ -40,19 +40,21 @@ def main():
 
     soup = BS(page.content.decode(), features="html.parser")
 
-    tableRows = soup.find('table', {'class': 'downloads'}).find_all('tr')
+    tableRows = soup.find_all('table', {'class': 'table table-simple'})[0].find_all('td')
 
     tableIter = iter(tableRows)
-    next(tableIter)
 
     versions = []
     platforms = []
     urls = []
 
-    for row in tableIter:
-        versions.append(row.find('a').text.split(' - ')[0].split(" ")[1].strip())
-        platforms.append(row.find('a').text.split(' - ')[1].strip())
-        urls.append(row.find('a').get('href'))
+    for i, row in enumerate(tableIter):
+        if i % 4 == 0:
+            versions.append(row.find('a').text.split(' - ')[0].split(" ")[1].strip())
+            platforms.append(row.find('a').text.split(' - ')[1].strip())
+            urls.append(row.find('a').get('href'))
+
+    print(urls)
 
     df = pd.DataFrame(data = {'Platform': platforms, 'Version': versions, 'Selection': range(1, len(urls) + 1), 'URL': urls})
 
@@ -73,7 +75,7 @@ def main():
 
         while True:
             try:
-                print('\nEnter selection number to install:', end = " ")
+                print('\nEnter selection number to install (or 0 to quit):', end = " ")
                 toInstall = int(input())
                 if toInstall in range(0, len(urls)):
                     toInstall = toInstall - 1
