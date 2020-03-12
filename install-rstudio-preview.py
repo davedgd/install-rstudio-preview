@@ -144,7 +144,7 @@ def main():
             os.remove(file)
             print('Installation complete!')
 
-    elif 'Mac' in df.iloc[toInstall, 0]:
+    elif 'macOS' in df.iloc[toInstall, 0]:
 
         try:
             version = str(subprocess.check_output('cat /Applications/RStudio.app/Contents/Info.plist | grep -A1 CFBundleShortVersionString | grep string | sed "s/<[^>]*>//g"', shell = True, stderr = subprocess.PIPE)).split('\\t')[1].split('\\n')[0]
