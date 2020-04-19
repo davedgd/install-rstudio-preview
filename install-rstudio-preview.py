@@ -54,7 +54,7 @@ def main():
             platforms.append(row.find('a').text.split(' - ')[1].strip())
             urls.append(row.find('a').get('href'))
 
-    print(urls)
+    #print(urls)
 
     df = pd.DataFrame(data = {'Platform': platforms, 'Version': versions, 'Selection': range(1, len(urls) + 1), 'URL': urls})
 
