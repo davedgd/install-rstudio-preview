@@ -58,10 +58,6 @@ def main():
 
     df = pd.DataFrame(data = {'Platform': platforms, 'Version': versions, 'Selection': range(1, len(urls) + 1), 'URL': urls})
 
-    print('\r')
-
-    print(df.iloc[:,0:3].to_string(index = False))
-
     match = False
 
     if len(sys.argv) > 1:
@@ -72,6 +68,10 @@ def main():
     if match:
         toInstall = int(df[df['Platform'].str.contains(sys.argv[1].replace('"', '').replace("'", ''))].index.values.astype(int))
     else:
+
+        print('\r')
+
+        print(df.iloc[:,0:3].to_string(index = False))
 
         while True:
             try:
@@ -127,7 +127,7 @@ def main():
             os.remove(file)
             print('Installation complete!')
         else:
-            print('\nYou are already using the latest version! Aborting...\n')
+            print('\nYou are already using the latest version (' + version + ')! Aborting...', sep = '')
             quit()
 
     elif 'Windows' in df.iloc[toInstall, 0]:
@@ -135,7 +135,7 @@ def main():
         version = subprocess.check_output('wmic datafile where name="C:\\\\Program Files\\\\RStudio\\\\bin\\\\rstudio.exe" get version', stderr = subprocess.PIPE).decode().split('\r\r\n')[1].strip()
 
         if (df.iloc[toInstall, 1] in version):
-            print('\nYou are already using the latest version! Aborting...')
+            print('\nYou are already using the latest version (' + version + ')! Aborting...', sep = '')
             quit()
         else:
             print('Installing...')
@@ -152,7 +152,7 @@ def main():
             version = None
 
         if (df.iloc[toInstall, 1] == version):
-            print('\nYou are already using the latest version! Aborting...\n')
+            print('\nYou are already using the latest version (' + version + ')! Aborting...', sep = '')
             quit()
         else:
             print('Installing...')
